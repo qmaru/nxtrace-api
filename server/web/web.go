@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"nxtrace-server/server/common"
+	"nxtrace-api/server/common"
 
 	"github.com/gin-gonic/gin"
 )

@@ -3,8 +3,8 @@ package cmd
 import (
 	"log"
 
-	"nxtrace-server/server/mqtt"
-	"nxtrace-server/server/web"
+	"nxtrace-api/server/mqtt"
+	"nxtrace-api/server/web"
 
 	"github.com/spf13/cobra"
 )

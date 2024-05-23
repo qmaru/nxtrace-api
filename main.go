@@ -1,7 +1,7 @@
 package main
 
 import (
-	"nxtrace-server/cmd"
+	"nxtrace-api/cmd"
 )
 
 func main() {

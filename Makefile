@@ -1,6 +1,6 @@
 PKG_NAME := ghcr.io/qmaru
 IMG_NAME := nxtrace
-PLATFORM := linux/amd64
+PLATFORM := linux/arm64,linux/amd64
 
 help: # Show help
 	@echo "Usage: make [target]"
@@ -13,6 +13,7 @@ test: check # Build a local tests
 
 build: check # Build and Push
 	docker buildx build --push \
+		-t $(PKG_NAME)/$(IMG_NAME):latest \
 		-t $(PKG_NAME)/$(IMG_NAME):go \
 		--platform=$(PLATFORM) \
 		.

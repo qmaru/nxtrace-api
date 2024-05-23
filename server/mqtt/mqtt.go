@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"nxtrace-server/server/common"
+	"nxtrace-api/server/common"
 
-	"github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 func Run() error {
@@ -34,14 +34,16 @@ func Run() error {
 
 	brokerAddr := fmt.Sprintf("%s://%s:%s/mqtt", protocol, mqttCfg.ServerHost, mqttCfg.ServerPort)
 
+	log.Printf("Broker server: %s\n", brokerAddr)
+
 	opts.AddBroker(brokerAddr)
 	opts.SetClientID(mqttCfg.MqttClientID)
 	opts.SetKeepAlive(60 * time.Second)
-	opts.SetPingTimeout(1 * time.Second)
+	opts.SetPingTimeout(5 * time.Second)
 	opts.SetCleanSession(false)
-	opts.ConnectRetry = true
-	opts.AutoReconnect = true
-	opts.OnConnect = TraceConnectCallback
+	opts.SetAutoReconnect(true)
+	opts.SetConnectRetry(false)
+	opts.SetOnConnectHandler(TraceConnectCallback)
 	if mqttCfg.MqttUsername != "" {
 		opts.Username = mqttCfg.MqttUsername
 		opts.Password = mqttCfg.MqttPassword

@@ -4,13 +4,16 @@ import (
 	"fmt"
 	"os"
 
+	"nxtrace-api/utils"
+
 	"github.com/spf13/cobra"
 )
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "nxtrace-server",
-		Short: "nxtrace-server",
+		Use:   "nxtrace",
+		Short: "nxtrace api server, mqtt client",
+		Version: utils.Version,
 	}
 )
 

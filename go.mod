@@ -1,4 +1,4 @@
-module nxtrace-server
+module nxtrace-api
 
 go 1.22.3
 

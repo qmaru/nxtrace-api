@@ -10,7 +10,9 @@ RUN CGO_ENABLED=0 go install -ldflags="-w -s -extldflags='static'" -trimpath git
     && mv $GOPATH/bin/NTrace-core $GOPATH/bin/nexttrace \
     && upx --best --lzma $GOPATH/bin/nexttrace
 
-RUN CGO_ENABLED=0 go build -ldflags="-w -s -extldflags='static'" -trimpath -o app \
+RUN gover=`go version | awk '{print $3,$4}'` \
+    && sed -i "s#COMMIT_GOVER#$gover#g" utils/version.go \
+    && CGO_ENABLED=0 go build -ldflags="-w -s -extldflags='static'" -trimpath -o app \
     && upx --best --lzma app
 
 FROM scratch as build-api

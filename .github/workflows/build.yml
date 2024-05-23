@@ -14,6 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Init
+        run: |
+          today=`date '+%y%m%d'`
+          stage=`echo ${GITHUB_SHA} | cut -b 1-7`
+          sed -i "s/COMMIT_DATE/$today/g" utils/version.go
+          sed -i "s/COMMIT_VERSION/$stage/g" utils/version.go
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 

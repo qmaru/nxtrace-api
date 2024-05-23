@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 
-	"nxtrace-server/server/common"
+	"nxtrace-api/server/common"
 
-	"github.com/eclipse/paho.mqtt.golang"
+	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
 var TraceConnectCallback mqtt.OnConnectHandler = func(client mqtt.Client) {
