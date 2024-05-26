@@ -11,8 +11,8 @@ import (
 
 var (
 	rootCmd = &cobra.Command{
-		Use:   "nxtrace",
-		Short: "nxtrace api server, mqtt client",
+		Use:     "nxtrace",
+		Short:   "nxtrace api server, mqtt client",
 		Version: utils.Version,
 	}
 )

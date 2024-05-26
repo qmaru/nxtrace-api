@@ -3,11 +3,25 @@ package mqtt
 import (
 	"fmt"
 	"log"
+	"net"
 
 	"nxtrace-api/server/common"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
+
+func ParseIP(target string) (string, error) {
+	ips, err := net.LookupHost(target)
+	if err != nil {
+		return "", err
+	}
+
+	if len(ips) != 0 {
+		return ips[0], nil
+	}
+
+	return target, nil
+}
 
 var TraceConnectCallback mqtt.OnConnectHandler = func(client mqtt.Client) {
 	config := new(common.Config)
@@ -61,11 +75,17 @@ var TraceInfoCallback mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 				log.Panic(err)
 			}
 
+			sourceIP, err := ParseIP(target)
+			if err != nil {
+				log.Panic(err)
+			}
+
 			outputJson := map[string]any{
 				"result": output,
 				"callback": map[string]string{
 					"region":      region,
 					"target":      target,
+					"source_ip":   sourceIP,
 					"source_id":   sourceID,
 					"source_name": sourceName,
 				},
