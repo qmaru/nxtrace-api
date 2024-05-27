@@ -4,11 +4,32 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strings"
 
 	"nxtrace-api/server/common"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
+
+func SetDot(target string, params []any) (bool, []any) {
+	var isFake bool
+	var dotPara []any
+
+	if strings.HasPrefix(target, "198.18") {
+		isFake = true
+		dotPara = []any{"--dot-server", "google"}
+	}
+
+	for _, para := range params {
+		p := para.(string)
+		if p == "--dot-server" {
+			dotPara = []any{}
+		}
+	}
+
+	params = append(params, dotPara...)
+	return isFake, params
+}
 
 func ParseIP(target string) (string, error) {
 	ips, err := net.LookupHost(target)
@@ -63,19 +84,21 @@ var TraceInfoCallback mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Me
 			sourceName := data["source_name"].(string)
 			sourceID := data["source_id"].(string)
 
-			log.Printf("receive a task: [%s] %s\n", region, target)
+			sourceIP, err := ParseIP(target)
+			if err != nil {
+				log.Panic(err)
+			}
+
+			isFake, params := SetDot(sourceIP, params)
 
 			paramsArray := make([]string, 0)
 			for _, para := range params {
 				paramsArray = append(paramsArray, para.(string))
 			}
 
-			output, err := common.RunTrace(target, paramsArray)
-			if err != nil {
-				log.Panic(err)
-			}
+			log.Printf("receive a task: [%s] %s (fakeip=%t)\n", region, target, isFake)
 
-			sourceIP, err := ParseIP(target)
+			output, err := common.RunTrace(target, paramsArray)
 			if err != nil {
 				log.Panic(err)
 			}
