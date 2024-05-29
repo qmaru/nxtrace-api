@@ -1,11 +1,9 @@
 package common
 
 import (
-	"fmt"
 	"os"
 	"os/exec"
 	"strings"
-	"time"
 )
 
 type Config struct {
@@ -61,7 +59,7 @@ func (c *Config) NewMqttConfig() Config {
 		MqttPassword: c.setDefaultEnv(ENV_MQTTPASS, "123456"),
 		MqttTopic:    c.setDefaultEnv(ENV_MQTTTOPIC, "trace/data"),
 		MqttWithTLS:  c.setDefaultEnv(ENV_MQTTWITHTLS, "false"),
-		MqttClientID: c.setDefaultEnv(ENV_MQTTCLIENT, fmt.Sprintf("qmeta-pub-%d", time.Now().UnixMilli())),
+		MqttClientID: c.setDefaultEnv(ENV_MQTTCLIENT, "trace"),
 	}
 }
 

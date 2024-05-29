@@ -40,13 +40,18 @@ func Run() error {
 	opts.SetClientID(mqttCfg.MqttClientID)
 	opts.SetKeepAlive(60 * time.Second)
 	opts.SetPingTimeout(5 * time.Second)
-	opts.SetCleanSession(false)
+	opts.SetCleanSession(true)
 	opts.SetAutoReconnect(true)
-	opts.SetConnectRetry(false)
-	opts.SetOnConnectHandler(TraceConnectCallback)
+	opts.SetMaxReconnectInterval(30 * time.Second)
+	opts.SetConnectTimeout(15 * time.Second)
+	opts.SetConnectRetry(true)
+	opts.SetOnConnectHandler(TraceOnConnectCallback)
+	opts.SetReconnectingHandler(TraceReconnectingCallback)
+	opts.SetConnectionLostHandler(TraceConnectionLostCallback)
+
 	if mqttCfg.MqttUsername != "" {
-		opts.Username = mqttCfg.MqttUsername
-		opts.Password = mqttCfg.MqttPassword
+		opts.SetUsername(mqttCfg.MqttUsername)
+		opts.SetPassword(mqttCfg.MqttPassword)
 	}
 
 	c := mqtt.NewClient(opts)

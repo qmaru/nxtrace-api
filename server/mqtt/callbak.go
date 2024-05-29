@@ -44,18 +44,32 @@ func ParseIP(target string) (string, error) {
 	return target, nil
 }
 
-var TraceConnectCallback mqtt.OnConnectHandler = func(client mqtt.Client) {
+var TraceOnConnectCallback mqtt.OnConnectHandler = func(client mqtt.Client) {
 	config := new(common.Config)
 	mqttCfg := config.NewMqttConfig()
 
+	opts := client.OptionsReader()
+	clientID := opts.ClientID()
+	topic := mqttCfg.MqttTopic
+
 	log.Printf("Connecting to %s:%s (tls=%s) \n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
 
-	token := client.Subscribe(mqttCfg.MqttTopic, 0, TraceInfoCallback)
+	token := client.Subscribe(topic, 0, TraceInfoCallback)
 	if token.Wait() && token.Error() != nil {
 		log.Printf("Subcrib error to topic: %v\n", token.Error())
 	} else {
-		log.Printf("Subcrib info: id=%s topic=%s qos=%d\n", mqttCfg.MqttClientID, mqttCfg.MqttTopic, 0)
+		log.Printf("Subcrib info: id=%s topic=%s qos=%d\n", clientID, topic, 0)
 	}
+}
+
+var TraceReconnectingCallback mqtt.ReconnectHandler = func(client mqtt.Client, opts *mqtt.ClientOptions) {
+	log.Printf("Reconnection: server=%s id=%s\n", opts.Servers, opts.ClientID)
+}
+
+var TraceConnectionLostCallback mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
+	opts := client.OptionsReader()
+	clientID := opts.ClientID()
+	log.Printf("Connection lost: id=%s msg=%s\n", clientID, err.Error())
 }
 
 var TraceInfoCallback mqtt.MessageHandler = func(client mqtt.Client, msg mqtt.Message) {
