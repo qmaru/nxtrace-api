@@ -19,10 +19,10 @@ build: check # Build and Push
 		.
 
 output_api: check # Build api bin
-	docker build --target=build-api --output=. .
+	docker buildx build --platform=$(PLATFORM) --target=build-api --output=. .
 
 output_core: check # Build core bin
-	docker build --target=build-core --output=. .
+	docker buildx build --platform=$(PLATFORM) --target=build-core --output=. .
 
 .PHONY: check
 check:
