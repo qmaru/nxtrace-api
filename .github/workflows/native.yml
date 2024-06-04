@@ -1,0 +1,68 @@
+name: native
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Init
+        run: |
+          today=`date '+%y%m%d'`
+          stage=`echo ${GITHUB_SHA} | cut -b 1-7`
+          gover=`go version | awk '{print $3,$4}'`
+          sed -i "s/COMMIT_DATE/$today/g" utils/version.go
+          sed -i "s/COMMIT_VERSION/$stage/g" utils/version.go
+          sed -i "s/COMMIT_GOVER/$gover/g" utils/version.go
+
+      - name: Build
+        run: |
+          today=$(date '+%y%m%d')
+          stage=$(echo ${GITHUB_SHA} | cut -b 1-7)
+          gover=$(go version | awk '{print $3,$4}')
+          version="$today (git-$stage) ($gover)"
+          sed -i "s#YOURVERSION#$version#g" cmd/root.go
+
+          TARGETS=(
+              "linux/arm64,nxtapi_linux_arm64"
+              "linux/amd64,nxtapi_linux_amd64"
+              "windows/arm64,nxtapi_windows_arm64.exe"
+              "windows/amd64,nxtapi_windows_amd64.exe"
+              "darwin/arm64,nxtapi_macos_arm64"
+              "darwin/amd64,nxtapi_macos_amd64"
+          )
+
+          for target in "${TARGETS[@]}"; do
+              main_info=($(echo $target | tr "," " "))
+              platform="${main_info[0]}"
+              output="${main_info[1]}"
+
+              go_info=($(echo $platform | tr "/" " "))
+              go_os="${go_info[0]}"
+              go_arch="${go_info[1]}"
+
+              echo "Build $platform"
+              CGO_ENABLED=0 GOOS=$go_os GOARCH=$go_arch go build -v -ldflags="-w -s" -trimpath -o $output
+          done
+
+      - name: Use UPX compression
+        uses: crazy-max/ghaction-upx@v3
+        with:
+          version: latest
+          files: |
+            ./nxtapi_linux*
+          args: "--lzma --best"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: nxtapi_*
+          retention-days: 7
