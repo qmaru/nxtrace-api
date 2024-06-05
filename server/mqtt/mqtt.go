@@ -1,27 +1,29 @@
 package mqtt
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
-	"time"
 
 	"nxtrace-api/server/common"
 
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	"github.com/eclipse/paho.golang/autopaho"
+	"github.com/eclipse/paho.golang/paho"
 )
 
 func Run() error {
 	config := new(common.Config)
 	mqttCfg := config.NewMqttConfig()
 
-	if os.Getenv("DEBUG") == "true" {
-		// mqtt.DEBUG = log.New(os.Stdout, "", 0)
-		mqtt.ERROR = log.New(os.Stdout, "", 0)
-	}
+	opts := new(autopaho.ClientConfig)
 
-	opts := mqtt.NewClientOptions()
+	if os.Getenv("DEBUG") == "true" {
+		// opts.Debug = log.New(os.Stdout, "", 0)
+		opts.Errors = log.New(os.Stdout, "", 0)
+	}
 
 	protocol := "ws"
 	if mqttCfg.MqttWithTLS == "true" {
@@ -29,36 +31,42 @@ func Run() error {
 		tlsConfig := &tls.Config{
 			InsecureSkipVerify: false,
 		}
-		opts.SetTLSConfig(tlsConfig)
+		opts.TlsCfg = tlsConfig
 	}
 
-	brokerAddr := fmt.Sprintf("%s://%s:%s/mqtt", protocol, mqttCfg.ServerHost, mqttCfg.ServerPort)
+	brokerAddr, err := url.Parse(fmt.Sprintf("%s://%s:%s/mqtt", protocol, mqttCfg.ServerHost, mqttCfg.ServerPort))
+	if err != nil {
+		return err
+	}
 
 	log.Printf("Broker server: %s\n", brokerAddr)
 
-	opts.AddBroker(brokerAddr)
-	opts.SetClientID(mqttCfg.MqttClientID)
-	opts.SetKeepAlive(60 * time.Second)
-	opts.SetPingTimeout(5 * time.Second)
-	opts.SetCleanSession(true)
-	opts.SetAutoReconnect(true)
-	opts.SetMaxReconnectInterval(30 * time.Second)
-	opts.SetConnectTimeout(15 * time.Second)
-	opts.SetConnectRetry(true)
-	opts.SetOnConnectHandler(TraceOnConnectCallback)
-	opts.SetReconnectingHandler(TraceReconnectingCallback)
-	opts.SetConnectionLostHandler(TraceConnectionLostCallback)
-
-	if mqttCfg.MqttUsername != "" {
-		opts.SetUsername(mqttCfg.MqttUsername)
-		opts.SetPassword(mqttCfg.MqttPassword)
+	opts.ServerUrls = []*url.URL{brokerAddr}
+	opts.KeepAlive = 60
+	opts.CleanStartOnInitialConnection = true
+	opts.SessionExpiryInterval = 0xFFFFFFFF
+	opts.OnConnectionUp = OnConnectionUp
+	opts.OnConnectError = OnConnectError
+	opts.ClientConfig = paho.ClientConfig{
+		ClientID:           mqttCfg.MqttClientID,
+		OnPublishReceived:  OnPublishReceived,
+		OnClientError:      OnClientError,
+		OnServerDisconnect: OnServerDisconnect,
 	}
 
-	c := mqtt.NewClient(opts)
+	if mqttCfg.MqttUsername != "" {
+		opts.ConnectUsername = mqttCfg.MqttUsername
+		opts.ConnectPassword = []byte(mqttCfg.MqttPassword)
+	}
 
-	token := c.Connect()
-	if token.Wait() && token.Error() != nil {
-		return token.Error()
+	ctx := context.Background()
+	client, err := autopaho.NewConnection(ctx, *opts)
+	if err != nil {
+		return err
+	}
+
+	if err = client.AwaitConnection(ctx); err != nil {
+		return err
 	}
 
 	n := make(chan struct{})
