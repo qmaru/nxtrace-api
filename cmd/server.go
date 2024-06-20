@@ -1,33 +1,26 @@
 package cmd
 
 import (
-	"log"
-
 	"nxtrace-api/server/mqtt"
 	"nxtrace-api/server/web"
-
-	"github.com/spf13/cobra"
 )
 
-var (
-	WebCmd = &cobra.Command{
-		Use:   "web",
-		Short: "Run web server",
-		Run: func(cmd *cobra.Command, args []string) {
-			err := web.Run()
-			if err != nil {
-				log.Fatal(err)
-			}
-		},
+type MqttCommand struct{}
+
+func (c *MqttCommand) Execute(args []string) error {
+	err := mqtt.Run()
+	if err != nil {
+		return err
 	}
-	MqttCmd = &cobra.Command{
-		Use:   "mqtt",
-		Short: "Run mqtt server",
-		Run: func(cmd *cobra.Command, args []string) {
-			err := mqtt.Run()
-			if err != nil {
-				log.Fatal(err)
-			}
-		},
+	return nil
+}
+
+type WebCommand struct{}
+
+func (c *WebCommand) Execute(args []string) error {
+	err := web.Run()
+	if err != nil {
+		return err
 	}
-)
+	return nil
+}

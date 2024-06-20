@@ -1,27 +1,53 @@
 package web
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
-	"os"
+	"net/http"
 
 	"nxtrace-api/server/common"
-
-	"github.com/gin-gonic/gin"
 )
 
 type TraceData struct {
-	Region string
-	Host   string
-	Params []string
+	Region string   `json:"region"`
+	Host   string   `json:"host"`
+	Params []string `json:"params"`
 }
 
-func trace_hanele(c *gin.Context) {
+func StringHandle(code int, writer http.ResponseWriter, a ...any) {
+	writer.Header().Set("Content-Type", "text/plain")
+	writer.WriteHeader(code)
+	fmt.Fprintln(writer, a...)
+}
+
+func RecoveryMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if err := recover(); err != nil {
+				http.Error(w, fmt.Sprintf("Internal Server Error: %v", err), http.StatusInternalServerError)
+				fmt.Printf("Recovered from panic: %v\n", err)
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
+}
+
+func TraceHandle(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		StringHandle(400, w, "invalid request")
+		return
+	}
+
 	var traceData TraceData
 
-	err := c.ShouldBindJSON(&traceData)
+	err = json.Unmarshal(body, &traceData)
 	if err != nil {
-		c.String(503, err.Error())
+		StringHandle(400, w, "invalid request")
 		return
 	}
 
@@ -30,30 +56,22 @@ func trace_hanele(c *gin.Context) {
 
 	output, err := common.RunTrace(host, params)
 	if err != nil {
-		c.String(503, err.Error())
+		StringHandle(503, w, err)
 		return
 	}
 
-	c.String(200, output)
+	StringHandle(200, w, output)
 }
 
 func Run() error {
 	config := new(common.Config)
 	webCfg := config.NewWebConfig()
 
-	if os.Getenv("DEBUG") == "true" {
-		gin.SetMode(gin.DebugMode)
-	} else {
-		gin.SetMode(gin.ReleaseMode)
-	}
-
 	listenAddr := fmt.Sprintf("%s:%s", webCfg.ServerHost, webCfg.ServerPort)
 	log.Printf("Listenning: %s\n", listenAddr)
 
-	router := gin.New()
-	router.Use(gin.Recovery(), gin.Logger())
-	router.SetTrustedProxies(nil)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/trace", TraceHandle)
 
-	router.POST("/trace", trace_hanele)
-	return router.Run(listenAddr)
+	return http.ListenAndServe(listenAddr, RecoveryMiddleware(mux))
 }

@@ -6,25 +6,34 @@ import (
 
 	"nxtrace-api/utils"
 
-	"github.com/spf13/cobra"
+	"github.com/jessevdk/go-flags"
 )
 
-var (
-	rootCmd = &cobra.Command{
-		Use:     "nxtrace",
-		Short:   "nxtrace api server, mqtt client",
-		Version: utils.Version,
-	}
-)
+type Option struct {
+	Version func()      `short:"v" long:"version" description:"Show version"`
+	Mqtt    MqttCommand `command:"mqtt"`
+	Web     WebCommand  `command:"web"`
+}
 
 func Execute() {
-	rootCmd.CompletionOptions.DisableDefaultCmd = true
-	rootCmd.AddCommand(
-		WebCmd,
-		MqttCmd,
-	)
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+	var opts Option
+
+	parser := flags.NewParser(&opts, flags.Default)
+	parser.Name = "nxtapi"
+	parser.LongDescription = "nxtrace web server or mqtt client"
+
+	if len(os.Args) == 1 {
+		parser.WriteHelp(os.Stdout)
+		return
+	}
+
+	opts.Version = func() {
+		fmt.Printf("%s version %s\n", parser.Name, utils.Version)
+		os.Exit(0)
+	}
+
+	_, err := parser.Parse()
+	if err != nil {
+		os.Exit(0)
 	}
 }
