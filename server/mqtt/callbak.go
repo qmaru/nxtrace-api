@@ -83,7 +83,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 	func(pr paho.PublishReceived) (bool, error) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("Task error: %s\n", err)
+				log.Printf("task error: %s\n", err)
 			}
 		}()
 
@@ -120,6 +120,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 				}
 
 				log.Printf("Receive a task: [%s] %s (fakeip=%t)\n", region, target, isFake)
+				log.Printf("Receive task params from %s: %+v\n", sourceName, params)
 
 				output, err := common.RunTrace(target, paramsArray)
 				if err != nil {

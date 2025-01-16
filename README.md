@@ -22,16 +22,18 @@ nxtrace tiny api (web/mqtt)
 ### server
 
 ```shell
-podman run -d \
+docker run \
     --name nxtapi \
-    --restart=always \
+    --net=host \
     --privileged=true \
-    -e TRACE_MQTT_HOST="mqtt.broker.com" \
+    -e TRACE_MQTT_HOST=127.0.0.1 \
     -e TRACE_MQTT_PORT="443" \
-    -e TRACE_MQTT_USERNAME="username" \
-    -e TRACE_MQTT_PASSWORD="password" \
-    -e TRACE_MQTT_WITHTLS="true" \
-    ghcr.io/qmaru/nxtrace:go
+    -e TRACE_MQTT_USERNAME=qmaru \
+    -e TRACE_MQTT_PASSWORD=123456 \
+    -e TRACE_MQTT_TOPIC="trace/data" \
+    -e TRACE_MQTT_CLIENT=qmeta-pub-xxx \
+    -e TRACE_MQTT_WITHTLS="false" \
+    ghcr.io/qmaru/nxtrace:go mqtt
 ```
 
 ## Credits
