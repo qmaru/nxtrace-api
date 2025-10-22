@@ -84,16 +84,16 @@ func Run() error {
 	}
 
 	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	go func() {
 		<-sigCh
-		log.Printf("shutdown signal received, cancelling context")
+		log.Println("shutdown signal received, cancelling context")
 		cancel()
 	}()
 
 	<-ctx.Done()
-	log.Printf("context canceled, exiting")
+	log.Println("context canceled, exiting")
 
 	return nil
 }
