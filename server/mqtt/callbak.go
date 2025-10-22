@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,11 +24,8 @@ func SetDot(target string, params []string) (bool, []string) {
 		dotPara = []string{"--dot-server", "google"}
 	}
 
-	for _, p := range params {
-		if p == "--dot-server" {
-			dotPara = []string{}
-			break
-		}
+	if slices.Contains(params, "--dot-server") {
+		dotPara = []string{}
 	}
 
 	if len(dotPara) > 0 {
@@ -56,7 +54,7 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 	topic := mqttCfg.MqttTopic
 	clientID := mqttCfg.MqttClientID
 
-	log.Printf("Connecting to %s:%s (tls=%s) \n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
+	log.Printf("Connecting to %s:%s (tls=%s)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
 	log.Printf("Subscrib info: id=%s topic=%s\n", clientID, topic)
 
 	ctx := context.Background()
@@ -86,7 +84,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 	func(pr paho.PublishReceived) (bool, error) {
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("task error: %s\n", err)
+				log.Printf("[Receive] task error: %s\n", err)
 			}
 		}()
 
@@ -95,13 +93,14 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		topic := pr.Packet.Topic
 
 		if len(payload) == 0 {
-			log.Printf("Payload empty: id=%s topic=%s\n", clientID, topic)
+			log.Printf("[Receive] payload empty: id=%s topic=%s\n", clientID, topic)
 			return true, nil
 		}
 
 		task, err := decodeTaskMessage(payload)
 		if err != nil {
-			log.Printf("decodeTaskMessage error: %v\n", err)
+			log.Printf("[Receive] decode payload error: %v\n", err)
+			log.Printf("[Receive] payload %s\n", string(payload))
 			return true, nil
 		}
 
@@ -112,32 +111,45 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 
 		newTopic := fmt.Sprintf("%s/result", topic)
 		target := task.Target
-		paramsArray := task.Params
+		params := task.Params
 		sourceName := task.SourceName
 		sourceID := task.SourceID
 
 		sourceIP, err := ParseIP(target)
 		if err != nil {
-			log.Printf("ParseIP(%s) error: %v\n", target, err)
+			log.Printf("[Receive] parse ip(%s) error: %v\n", target, err)
 			sourceIP = target
 			return true, nil
 		}
 
-		isFake, params := SetDot(sourceIP, paramsArray)
+		isFake, latestParams := SetDot(sourceIP, params)
 
-		log.Printf("Receive a task: [%s] %s (fakeip=%t)\n", region, target, isFake)
-		log.Printf("Receive task params from %s: %+v\n", sourceName, params)
+		log.Printf("[Receive] region=%s target=%s (fakeip=%t)\n", region, target, isFake)
+		log.Printf("[Receive] params from %s: %+v\n", sourceName, params)
+		log.Printf("[Receive] trace params %v\n", latestParams)
 
-		output, err := common.RunTrace(target, paramsArray)
+		var traceResult string
+
+		output, err := common.RunTrace(target, latestParams)
 		if err != nil {
-			log.Printf("RunTrace error: %v\n", err)
-			output = err.Error()
+			log.Printf("[Receive] trace error: %v\n", err)
+			if output == "" {
+				errOutput := map[string]string{
+					"error": err.Error(),
+				}
+				errOutputJson, err := encodeMessage(errOutput)
+				if err != nil {
+					log.Printf("[Receive] encode error message error: %v\n", err)
+					return true, nil
+				}
+				traceResult = string(errOutputJson)
+			}
+		} else {
+			traceResult = output
 		}
 
-		log.Printf("RunTrace complete\n")
-
-		outputJson := map[string]any{
-			"result": output,
+		pubTextMessage := map[string]any{
+			"result": traceResult,
 			"callback": map[string]string{
 				"region":      region,
 				"target":      target,
@@ -146,15 +158,21 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 				"source_name": sourceName,
 			},
 		}
-		pubMessage, err := encodeMessage(outputJson)
+
+		if common.GetDebug() {
+			log.Printf("[Receive] trace publish message: %s\n", pubTextMessage)
+		}
+
+		pubMessage, err := encodeMessage(pubTextMessage)
 		if err != nil {
-			log.Panic(err)
+			log.Printf("[Receive] encode output message error: %v\n", err)
+			return true, nil
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		log.Printf("Start publish message\n")
+		log.Printf("[Receive] start publish\n")
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
 			Topic:   newTopic,
 			QoS:     0,
@@ -163,9 +181,9 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		})
 
 		if err != nil {
-			log.Printf("Publish error topic=%s err=%v\n", newTopic, err)
+			log.Printf("[Receive] publish error: topic=%s err=%v\n", newTopic, err)
 		} else {
-			log.Printf("Publish message: [%s] %s\n", region, newTopic)
+			log.Printf("[Receive] publish message: [%s] %s\n", region, newTopic)
 		}
 
 		return true, nil

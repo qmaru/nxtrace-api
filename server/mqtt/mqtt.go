@@ -24,11 +24,10 @@ func Run() error {
 
 	opts := new(autopaho.ClientConfig)
 
-	if dbgEnv := os.Getenv("DEBUG"); dbgEnv != "" {
-		if dbg, err := strconv.ParseBool(dbgEnv); err == nil && dbg {
-			// opts.Debug = log.New(os.Stdout, "", 0)
-			opts.Errors = log.New(os.Stdout, "", 0)
-		}
+	if common.GetDebug() {
+		// opts.Debug = log.New(os.Stdout, "", 0)
+		opts.Errors = log.New(os.Stdout, "", 0)
+		log.Println("MQTT client starting in debug mode")
 	}
 
 	protocol := "ws"

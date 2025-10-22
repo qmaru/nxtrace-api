@@ -1,9 +1,15 @@
 package common
 
 import (
+	"context"
+	"fmt"
+	"log"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Config struct {
@@ -18,6 +24,8 @@ type Config struct {
 }
 
 const (
+	ENV_DEBUG       = "TRACE_DEBUG"
+	ENV_TIMEOUT     = "TRACE_TIMEOUT"
 	ENV_CORE        = "TRACE_CORE"
 	ENV_WEBHOST     = "TRACE_WEB_HOST"
 	ENV_WEBPORT     = "TRACE_WEB_PORT"
@@ -30,7 +38,28 @@ const (
 	ENV_MQTTWITHTLS = "TRACE_MQTT_WITHTLS"
 )
 
-func (c *Config) setDefaultEnv(key string, defaultValue string) string {
+var GetDebug = sync.OnceValue(func() bool {
+	var debug bool
+	if dbgEnv := os.Getenv(ENV_DEBUG); dbgEnv != "" {
+		if dbg, err := strconv.ParseBool(dbgEnv); err == nil && dbg {
+			debug = true
+		}
+	}
+	return debug
+})
+
+var traceTimeout = getTimeout()
+
+func getTimeout() time.Duration {
+	timeoutStr := setDefaultEnv(ENV_TIMEOUT, "120")
+	timeoutInt, err := strconv.Atoi(timeoutStr)
+	if err != nil || timeoutInt <= 0 {
+		timeoutInt = 120
+	}
+	return time.Duration(timeoutInt) * time.Second
+}
+
+func setDefaultEnv(key string, defaultValue string) string {
 	value, exists := os.LookupEnv(key)
 	if !exists {
 		return defaultValue
@@ -40,26 +69,26 @@ func (c *Config) setDefaultEnv(key string, defaultValue string) string {
 
 func (c *Config) NewCoreConfig() Config {
 	return Config{
-		TraceCore: c.setDefaultEnv(ENV_CORE, "/usr/bin/nexttrace"),
+		TraceCore: setDefaultEnv(ENV_CORE, "/usr/bin/nexttrace"),
 	}
 }
 
 func (c *Config) NewWebConfig() Config {
 	return Config{
-		ServerHost: c.setDefaultEnv(ENV_WEBHOST, "127.0.0.1"),
-		ServerPort: c.setDefaultEnv(ENV_WEBPORT, "8080"),
+		ServerHost: setDefaultEnv(ENV_WEBHOST, "127.0.0.1"),
+		ServerPort: setDefaultEnv(ENV_WEBPORT, "8080"),
 	}
 }
 
 func (c *Config) NewMqttConfig() Config {
 	return Config{
-		ServerHost:   c.setDefaultEnv(ENV_MQTTHOST, "127.0.0.1"),
-		ServerPort:   c.setDefaultEnv(ENV_MQTTPORT, "1883"),
-		MqttUsername: c.setDefaultEnv(ENV_MQTTUSER, "qmaru"),
-		MqttPassword: c.setDefaultEnv(ENV_MQTTPASS, "123456"),
-		MqttTopic:    c.setDefaultEnv(ENV_MQTTTOPIC, "trace/data"),
-		MqttWithTLS:  c.setDefaultEnv(ENV_MQTTWITHTLS, "false"),
-		MqttClientID: c.setDefaultEnv(ENV_MQTTCLIENT, "trace"),
+		ServerHost:   setDefaultEnv(ENV_MQTTHOST, "127.0.0.1"),
+		ServerPort:   setDefaultEnv(ENV_MQTTPORT, "1883"),
+		MqttUsername: setDefaultEnv(ENV_MQTTUSER, "qmaru"),
+		MqttPassword: setDefaultEnv(ENV_MQTTPASS, "123456"),
+		MqttTopic:    setDefaultEnv(ENV_MQTTTOPIC, "trace/data"),
+		MqttWithTLS:  setDefaultEnv(ENV_MQTTWITHTLS, "false"),
+		MqttClientID: setDefaultEnv(ENV_MQTTCLIENT, "trace"),
 	}
 }
 
@@ -68,12 +97,34 @@ func RunTrace(host string, params []string) (string, error) {
 	coreCfg := config.NewCoreConfig()
 
 	params = append(params, host)
-	cmd := exec.Command(coreCfg.TraceCore, params...)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", err
+	if GetDebug() {
+		log.Printf("[Receive] trace command: %s %s\n", coreCfg.TraceCore, strings.Join(params, " "))
 	}
 
-	results := strings.TrimSpace(string(output))
-	return results, nil
+	ctx, cancel := context.WithTimeout(context.Background(), traceTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, coreCfg.TraceCore, params...)
+	output, err := cmd.CombinedOutput()
+
+	result := strings.TrimSpace(string(output))
+	if ctx.Err() == context.DeadlineExceeded {
+		if GetDebug() {
+			log.Printf("[Receive] trace timeout=%s result=%s\n", traceTimeout, result)
+		}
+		return result, fmt.Errorf("timeout=%s", traceTimeout)
+	}
+
+	if err != nil {
+		if GetDebug() {
+			log.Printf("[Receive] trace error=%v result=%s\n", err, result)
+		}
+		return result, fmt.Errorf("reason=%w", err)
+	}
+
+	if GetDebug() {
+		log.Printf("[Receive] result: %s\n", result)
+	}
+
+	return result, nil
 }
