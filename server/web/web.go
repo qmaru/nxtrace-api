@@ -19,7 +19,20 @@ type TraceData struct {
 func StringHandle(code int, writer http.ResponseWriter, a ...any) {
 	writer.Header().Set("Content-Type", "text/plain")
 	writer.WriteHeader(code)
-	fmt.Fprintln(writer, a...)
+	if len(a) == 1 {
+		switch v := a[0].(type) {
+		case []byte:
+			_, _ = writer.Write(v)
+			return
+		case error:
+			_, _ = io.WriteString(writer, v.Error())
+			return
+		case string:
+			_, _ = io.WriteString(writer, v)
+			return
+		}
+	}
+	fmt.Fprint(writer, a...)
 }
 
 func RecoveryMiddleware(next http.Handler) http.Handler {
@@ -37,17 +50,16 @@ func RecoveryMiddleware(next http.Handler) http.Handler {
 func TraceHandle(w http.ResponseWriter, r *http.Request) {
 	defer r.Body.Close()
 
-	body, err := io.ReadAll(r.Body)
-	if err != nil {
-		StringHandle(400, w, "invalid request")
+	var traceData TraceData
+	dec := json.NewDecoder(r.Body)
+
+	if err := dec.Decode(&traceData); err != nil {
+		StringHandle(http.StatusBadRequest, w, "invalid request: "+err.Error())
 		return
 	}
 
-	var traceData TraceData
-
-	err = json.Unmarshal(body, &traceData)
-	if err != nil {
-		StringHandle(400, w, "invalid request")
+	if traceData.Host == "" {
+		StringHandle(http.StatusBadRequest, w, "missing host")
 		return
 	}
 

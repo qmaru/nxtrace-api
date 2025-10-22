@@ -3,10 +3,14 @@ package mqtt
 import (
 	"context"
 	"crypto/tls"
-	"fmt"
 	"log"
+	"net"
 	"net/url"
 	"os"
+	"os/signal"
+	"strconv"
+	"syscall"
+	"time"
 
 	"nxtrace-api/server/common"
 
@@ -20,23 +24,28 @@ func Run() error {
 
 	opts := new(autopaho.ClientConfig)
 
-	if os.Getenv("DEBUG") == "true" {
-		// opts.Debug = log.New(os.Stdout, "", 0)
-		opts.Errors = log.New(os.Stdout, "", 0)
+	if dbgEnv := os.Getenv("DEBUG"); dbgEnv != "" {
+		if dbg, err := strconv.ParseBool(dbgEnv); err == nil && dbg {
+			// opts.Debug = log.New(os.Stdout, "", 0)
+			opts.Errors = log.New(os.Stdout, "", 0)
+		}
 	}
 
 	protocol := "ws"
-	if mqttCfg.MqttWithTLS == "true" {
-		protocol = "wss"
-		tlsConfig := &tls.Config{
-			InsecureSkipVerify: false,
+	if tlsEnv := mqttCfg.MqttWithTLS; tlsEnv != "" {
+		if tlsOn, err := strconv.ParseBool(tlsEnv); err == nil && tlsOn {
+			protocol = "wss"
+			tlsConfig := &tls.Config{
+				InsecureSkipVerify: false,
+			}
+			opts.TlsCfg = tlsConfig
 		}
-		opts.TlsCfg = tlsConfig
 	}
 
-	brokerAddr, err := url.Parse(fmt.Sprintf("%s://%s:%s/mqtt", protocol, mqttCfg.ServerHost, mqttCfg.ServerPort))
-	if err != nil {
-		return err
+	brokerAddr := &url.URL{
+		Scheme: protocol,
+		Host:   net.JoinHostPort(mqttCfg.ServerHost, mqttCfg.ServerPort),
+		Path:   "/mqtt",
 	}
 
 	log.Printf("Broker server: %s\n", brokerAddr)
@@ -59,18 +68,32 @@ func Run() error {
 		opts.ConnectPassword = []byte(mqttCfg.MqttPassword)
 	}
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	client, err := autopaho.NewConnection(ctx, *opts)
 	if err != nil {
 		return err
 	}
 
-	if err = client.AwaitConnection(ctx); err != nil {
+	connectCtx, connectCancel := context.WithTimeout(ctx, 60*time.Second)
+	defer connectCancel()
+
+	if err = client.AwaitConnection(connectCtx); err != nil {
 		return err
 	}
 
-	n := make(chan struct{})
-	<-n
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigCh
+		log.Printf("shutdown signal received, cancelling context")
+		cancel()
+	}()
+
+	<-ctx.Done()
+	log.Printf("context canceled, exiting")
 
 	return nil
 }
