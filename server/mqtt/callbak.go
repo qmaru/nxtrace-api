@@ -134,6 +134,8 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 			output = err.Error()
 		}
 
+		log.Printf("RunTrace complete\n")
+
 		outputJson := map[string]any{
 			"result": output,
 			"callback": map[string]string{
@@ -152,6 +154,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
+		log.Printf("Start publish message\n")
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
 			Topic:   newTopic,
 			QoS:     0,
