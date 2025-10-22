@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"strings"
+	"time"
 
 	"nxtrace-api/server/common"
 
@@ -13,23 +14,25 @@ import (
 	"github.com/eclipse/paho.golang/paho"
 )
 
-func SetDot(target string, params []any) (bool, []any) {
+func SetDot(target string, params []string) (bool, []string) {
 	var isFake bool
-	var dotPara []any
+	var dotPara []string
 
 	if strings.HasPrefix(target, "198.18") {
 		isFake = true
-		dotPara = []any{"--dot-server", "google"}
+		dotPara = []string{"--dot-server", "google"}
 	}
 
-	for _, para := range params {
-		p := para.(string)
+	for _, p := range params {
 		if p == "--dot-server" {
-			dotPara = []any{}
+			dotPara = []string{}
+			break
 		}
 	}
 
-	params = append(params, dotPara...)
+	if len(dotPara) > 0 {
+		params = append(params, dotPara...)
+	}
 	return isFake, params
 }
 
@@ -91,74 +94,75 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		clientID := pr.Client.ClientID()
 		topic := pr.Packet.Topic
 
-		if len(payload) != 0 {
-			ctx := context.Background()
+		if len(payload) == 0 {
+			log.Printf("Payload empty: id=%s topic=%s\n", clientID, topic)
+			return true, nil
+		}
 
-			data, err := decodeMessage(payload)
-			if err != nil {
-				log.Panic(err)
-			}
+		task, err := decodeTaskMessage(payload)
+		if err != nil {
+			log.Printf("decodeTaskMessage error: %v\n", err)
+			return true, nil
+		}
 
-			region := data["region"].(string)
-			if clientID == region {
-				newTopic := fmt.Sprintf("%s/result", topic)
-				target := data["target"].(string)
-				params := data["params"].([]any)
-				sourceName := data["source_name"].(string)
-				sourceID := data["source_id"].(string)
+		region := task.Region
+		if clientID != region {
+			return true, nil
+		}
 
-				sourceIP, err := ParseIP(target)
-				if err != nil {
-					log.Panic(err)
-				}
+		newTopic := fmt.Sprintf("%s/result", topic)
+		target := task.Target
+		paramsArray := task.Params
+		sourceName := task.SourceName
+		sourceID := task.SourceID
 
-				isFake, params := SetDot(sourceIP, params)
+		sourceIP, err := ParseIP(target)
+		if err != nil {
+			log.Printf("ParseIP(%s) error: %v\n", target, err)
+			sourceIP = target
+			return true, nil
+		}
 
-				paramsArray := make([]string, 0)
-				for _, para := range params {
-					paramsArray = append(paramsArray, para.(string))
-				}
+		isFake, params := SetDot(sourceIP, paramsArray)
 
-				log.Printf("Receive a task: [%s] %s (fakeip=%t)\n", region, target, isFake)
-				log.Printf("Receive task params from %s: %+v\n", sourceName, params)
+		log.Printf("Receive a task: [%s] %s (fakeip=%t)\n", region, target, isFake)
+		log.Printf("Receive task params from %s: %+v\n", sourceName, params)
 
-				output, err := common.RunTrace(target, paramsArray)
-				if err != nil {
-					log.Panic(err)
-				}
+		output, err := common.RunTrace(target, paramsArray)
+		if err != nil {
+			log.Printf("RunTrace error: %v\n", err)
+			output = err.Error()
+		}
 
-				outputJson := map[string]any{
-					"result": output,
-					"callback": map[string]string{
-						"region":      region,
-						"target":      target,
-						"source_ip":   sourceIP,
-						"source_id":   sourceID,
-						"source_name": sourceName,
-					},
-				}
-				pubMessage, err := encodeMessage(outputJson)
-				if err != nil {
-					log.Panic(err)
-				}
+		outputJson := map[string]any{
+			"result": output,
+			"callback": map[string]string{
+				"region":      region,
+				"target":      target,
+				"source_ip":   sourceIP,
+				"source_id":   sourceID,
+				"source_name": sourceName,
+			},
+		}
+		pubMessage, err := encodeMessage(outputJson)
+		if err != nil {
+			log.Panic(err)
+		}
 
-				_, err = pr.Client.Publish(ctx, &paho.Publish{
-					Topic:   newTopic,
-					QoS:     0,
-					Retain:  false,
-					Payload: pubMessage,
-				})
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
 
-				if err != nil {
-					if ctx.Err() != nil {
-						log.Panic(ctx.Err())
-					}
-				} else {
-					log.Printf("Publish message: [%s] %s\n", region, newTopic)
-				}
-			}
+		_, err = pr.Client.Publish(ctx, &paho.Publish{
+			Topic:   newTopic,
+			QoS:     0,
+			Retain:  false,
+			Payload: pubMessage,
+		})
+
+		if err != nil {
+			log.Printf("Publish error topic=%s err=%v\n", newTopic, err)
 		} else {
-			log.Printf("Payload error: id=%s topic=%s payload=%s\n", clientID, topic, payload)
+			log.Printf("Publish message: [%s] %s\n", region, newTopic)
 		}
 
 		return true, nil

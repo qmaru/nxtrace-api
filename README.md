@@ -24,6 +24,7 @@ nxtrace tiny api (web/mqtt)
 ```shell
 docker run \
     --name nxtapi \
+    --rm \
     --net=host \
     --privileged=true \
     -e TRACE_MQTT_HOST=127.0.0.1 \

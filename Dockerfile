@@ -14,6 +14,7 @@ COPY . /usr/src/
 
 RUN apk add upx ca-certificates tzdata
 
+RUN go mod download
 RUN gover=`go version | awk '{print $3,$4}'` \
     && sed -i "s#COMMIT_GOVER#$gover#g" utils/version.go \
     && CGO_ENABLED=0 go build -ldflags="-w -s -extldflags='static'" -trimpath -o nxtapi_$(uname -m) \
