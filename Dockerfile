@@ -1,4 +1,4 @@
-FROM golang:alpine as go-core-builder
+FROM golang:alpine AS go-core-builder
 
 RUN apk add upx
 
@@ -6,7 +6,7 @@ RUN CGO_ENABLED=0 go install -ldflags="-w -s -extldflags='static'" -trimpath git
     && mv $GOPATH/bin/NTrace-core $GOPATH/bin/nexttrace_$(uname -m) \
     && upx --best --lzma $GOPATH/bin/nexttrace_$(uname -m)
 
-FROM golang:alpine as go-api-builder
+FROM golang:alpine AS go-api-builder
 
 WORKDIR /usr/src
 
@@ -19,15 +19,15 @@ RUN gover=`go version | awk '{print $3,$4}'` \
     && CGO_ENABLED=0 go build -ldflags="-w -s -extldflags='static'" -trimpath -o nxtapi_$(uname -m) \
     && upx --best --lzma nxtapi_$(uname -m)
 
-FROM scratch as build-api
+FROM scratch AS build-api
 
 COPY --from=go-api-builder /usr/src/nxtapi_* /
 
-FROM scratch as build-core
+FROM scratch AS build-core
 
 COPY --from=go-core-builder /go/bin/nexttrace_* /
 
-FROM busybox:uclibc as tinybox
+FROM busybox:uclibc AS tinybox
 
 COPY --from=go-core-builder /go/bin/nexttrace_* /nexttrace
 COPY --from=go-api-builder /usr/share/zoneinfo/Asia/Shanghai /etc/localtime
@@ -36,7 +36,7 @@ COPY --from=go-api-builder /usr/src/nxtapi_* /nxtapi
 
 RUN rm -fr /bin/*
 
-FROM scratch as prod
+FROM scratch AS prod
 
 COPY --from=tinybox / /
 
