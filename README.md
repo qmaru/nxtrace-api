@@ -8,10 +8,8 @@ nxtrace tiny api (web/mqtt)
 
 |NAME|DEFAULT|
 |:-:|:-:|
-
 |TRACE_DEBUG|false|
 |TRACE_TIMEOUT|120|
-|TRACE_CORE|/usr/bin/nexttrace|
 |TRACE_CORE|/usr/bin/nexttrace|
 |TRACE_WEB_HOST|127.0.0.1|
 |TRACE_WEB_PORT|8080|
