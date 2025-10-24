@@ -76,10 +76,9 @@ func TraceHandle(w http.ResponseWriter, r *http.Request) {
 }
 
 func Run() error {
-	config := new(common.Config)
-	webCfg := config.NewWebConfig()
+	webCfg := common.NxtConfig.GetWebConfig()
 
-	listenAddr := fmt.Sprintf("%s:%s", webCfg.ServerHost, webCfg.ServerPort)
+	listenAddr := fmt.Sprintf("%s:%d", webCfg.ServerHost, webCfg.ServerPort)
 	log.Printf("Listenning: %s\n", listenAddr)
 
 	mux := http.NewServeMux()

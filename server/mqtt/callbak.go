@@ -48,21 +48,23 @@ func ParseIP(target string) (string, error) {
 }
 
 var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
-	config := new(common.Config)
-	mqttCfg := config.NewMqttConfig()
+	mqttCfg := common.NxtConfig.GetMqttConfig()
 
 	topic := mqttCfg.MqttTopic
+	qos := mqttCfg.MqttQos
+	retain := mqttCfg.MqttRetain
 	clientID := mqttCfg.MqttClientID
 
-	log.Printf("Connecting to %s:%s (tls=%s)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
-	log.Printf("Subscrib info: id=%s topic=%s\n", clientID, topic)
+	log.Printf("Connecting to %s:%d (tls=%t)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
+	log.Printf("Subscrib info: id=%s topic=%s qos=%d clean=%t\n", clientID, topic, qos, retain)
 
 	ctx := context.Background()
 	_, err := cm.Subscribe(ctx, &paho.Subscribe{
 		Subscriptions: []paho.SubscribeOptions{
 			{
-				Topic: topic,
-				QoS:   0,
+				Topic:             topic,
+				QoS:               qos,
+				RetainAsPublished: retain,
 			},
 		},
 	})
@@ -159,7 +161,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 			},
 		}
 
-		if common.GetDebug() {
+		if common.NxtConfig.Debug {
 			log.Printf("[Receive] trace publish message: %s\n", pubTextMessage)
 		}
 
