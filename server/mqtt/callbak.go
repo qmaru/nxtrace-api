@@ -55,14 +55,17 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 	retain := mqttCfg.MqttRetain
 	clientID := mqttCfg.MqttClientID
 
+	traceTopic := fmt.Sprintf("%s/%s", topic, clientID)
+
 	log.Printf("Connecting to %s:%d (tls=%t)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
-	log.Printf("Subscrib info: id=%s topic=%s qos=%d clean=%t\n", clientID, topic, qos, retain)
+	log.Printf("Subscrib info: id=%s qos=%d clean=%t\n", clientID, qos, retain)
+	log.Printf("Topic info: base_topic=%s trace_topic=%s\n", topic, traceTopic)
 
 	ctx := context.Background()
 	_, err := cm.Subscribe(ctx, &paho.Subscribe{
 		Subscriptions: []paho.SubscribeOptions{
 			{
-				Topic:             topic,
+				Topic:             traceTopic,
 				QoS:               qos,
 				RetainAsPublished: retain,
 			},
@@ -71,9 +74,7 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 
 	if err != nil {
 		if ctx.Err() != nil {
-			log.Printf("Subcrib error to topic: %v\n", ctx.Err().Error())
-		} else {
-			log.Printf("Subcrib info: topic=%s qos=%d\n", topic, 0)
+			log.Printf("Subscribe error to topic: %v\n", ctx.Err().Error())
 		}
 	}
 }
@@ -111,7 +112,9 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 			return true, nil
 		}
 
-		newTopic := fmt.Sprintf("%s/result", topic)
+		mqttCfg := common.NxtConfig.GetMqttConfig()
+
+		resultTopic := fmt.Sprintf("%s/result", mqttCfg.MqttTopic)
 		target := task.Target
 		params := task.Params
 		sourceName := task.SourceName
@@ -129,6 +132,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		log.Printf("[Receive] region=%s target=%s (fakeip=%t)\n", region, target, isFake)
 		log.Printf("[Receive] params from %s: %+v\n", sourceName, params)
 		log.Printf("[Receive] trace params %v\n", latestParams)
+		log.Printf("[Receive] receive_topic=%s result_topic=%s\n", topic, resultTopic)
 
 		var traceResult string
 
@@ -176,16 +180,16 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 
 		log.Printf("[Receive] start publish\n")
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
-			Topic:   newTopic,
+			Topic:   resultTopic,
 			QoS:     0,
 			Retain:  false,
 			Payload: pubMessage,
 		})
 
 		if err != nil {
-			log.Printf("[Receive] publish error: topic=%s err=%v\n", newTopic, err)
+			log.Printf("[Receive] publish error: topic=%s err=%v\n", resultTopic, err)
 		} else {
-			log.Printf("[Receive] publish message: [%s] %s\n", region, newTopic)
+			log.Printf("[Receive] publish message: [%s] %s\n", region, resultTopic)
 		}
 
 		return true, nil
