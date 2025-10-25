@@ -181,8 +181,8 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		log.Printf("[Receive] start publish\n")
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
 			Topic:   resultTopic,
-			QoS:     0,
-			Retain:  false,
+			QoS:     mqttCfg.MqttQos,
+			Retain:  mqttCfg.MqttRetain,
 			Payload: pubMessage,
 		})
 
