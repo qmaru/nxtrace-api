@@ -56,9 +56,9 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 	clientID := mqttCfg.MqttClientID
 
 	traceTopic := fmt.Sprintf("%s/%s", topic, clientID)
-	log.Printf("Connecting to %s:%d (tls=%t)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
-	log.Printf("Subscribe info: id=%s qos=%d retain=%t\n clean=%t", clientID, qos, retain, mqttCfg.MqttCleanStart)
-	log.Printf("Topic info: base_topic=%s trace_topic=%s\n", topic, traceTopic)
+	log.Printf("[UP] connecting to %s:%d (tls=%t)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
+	log.Printf("[UP] subscribe info: id=%s qos=%d retain=%t clean=%t\n", clientID, qos, retain, mqttCfg.MqttCleanStart)
+	log.Printf("[UP] topic info: base_topic=%s trace_topic=%s\n", topic, traceTopic)
 
 	ctx := context.Background()
 	_, err := cm.Subscribe(ctx, &paho.Subscribe{
@@ -73,13 +73,13 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 
 	if err != nil {
 		if ctx.Err() != nil {
-			log.Printf("Subscribe error to topic: %v\n", ctx.Err().Error())
+			log.Printf("[UP] subscribe error to topic: %v\n", ctx.Err().Error())
 		}
 	}
 }
 
 var OnConnectError = func(err error) {
-	log.Printf("Connection error: msg=%s\n", err.Error())
+	log.Printf("[ERROR] connection error: msg=%s\n", err.Error())
 }
 
 var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
@@ -178,6 +178,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		defer cancel()
 
 		log.Printf("[Receive] start publish\n")
+		log.Printf("[Receive] id=%s qos=%d retain=%t clean=%t\n", clientID, mqttCfg.MqttQos, mqttCfg.MqttRetain, mqttCfg.MqttCleanStart)
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
 			Topic:   resultTopic,
 			QoS:     mqttCfg.MqttQos,
