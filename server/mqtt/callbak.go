@@ -56,9 +56,8 @@ var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack)
 	clientID := mqttCfg.MqttClientID
 
 	traceTopic := fmt.Sprintf("%s/%s", topic, clientID)
-
 	log.Printf("Connecting to %s:%d (tls=%t)\n", mqttCfg.ServerHost, mqttCfg.ServerPort, mqttCfg.MqttWithTLS)
-	log.Printf("Subscrib info: id=%s qos=%d clean=%t\n", clientID, qos, retain)
+	log.Printf("Subscribe info: id=%s qos=%d retain=%t\n clean=%t", clientID, qos, retain, mqttCfg.MqttCleanStart)
 	log.Printf("Topic info: base_topic=%s trace_topic=%s\n", topic, traceTopic)
 
 	ctx := context.Background()
