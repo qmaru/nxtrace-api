@@ -39,6 +39,9 @@ docker run \
     -e TRACE_MQTT_USERNAME=qmaru \
     -e TRACE_MQTT_PASSWORD=123456 \
     -e TRACE_MQTT_TOPIC="trace/data" \
+    -e TRACE_MQTT_QOS=2 \
+    -e TRACE_MQTT_RETAIN="false" \
+    -e ENV_MQTT_CLEANSTART="false" \
     -e TRACE_MQTT_CLIENT=qmeta-pub-xxx \
     -e TRACE_MQTT_WITHTLS="false" \
     ghcr.io/qmaru/nxtrace:latest mqtt

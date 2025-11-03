@@ -93,15 +93,31 @@ func (c *Config) GetMqttConfig() MqttConfig {
 func RunTrace(host string, params []string) (string, error) {
 	coreCfg := NxtConfig.GetCoreConfig()
 
-	params = append(params, host)
+	if coreCfg.Path == "" {
+		return "", fmt.Errorf("core path is empty")
+	}
+
+	if coreCfg.Timeout <= 0 {
+		coreCfg.Timeout = 120
+	}
+
+	args := append(append([]string{}, params...), host)
 	if NxtConfig.Debug {
-		log.Printf("[Receive] trace command: %s %s\n", coreCfg.Path, strings.Join(params, " "))
+		log.Printf("[Receive] trace command: %s %s\n", coreCfg.Path, strings.Join(args, " "))
+	}
+
+	exe, err := exec.LookPath(coreCfg.Path)
+	if err != nil {
+		if NxtConfig.Debug {
+			log.Printf("[Receive] executable not found: %v\n", err)
+		}
+		return "", fmt.Errorf("executable not found: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(coreCfg.Timeout)*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, coreCfg.Path, params...)
+	cmd := exec.CommandContext(ctx, exe, args...)
 	output, err := cmd.CombinedOutput()
 
 	result := strings.TrimSpace(string(output))

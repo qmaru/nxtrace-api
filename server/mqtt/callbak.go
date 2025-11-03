@@ -17,34 +17,39 @@ import (
 
 func SetDot(target string, params []string) (bool, []string) {
 	var isFake bool
-	var dotPara []string
-
-	if strings.HasPrefix(target, "198.18") {
+	if strings.HasPrefix(target, "198.18.") {
 		isFake = true
-		dotPara = []string{"--dot-server", "google"}
-	}
-
-	if slices.Contains(params, "--dot-server") {
-		dotPara = []string{}
-	}
-
-	if len(dotPara) > 0 {
-		params = append(params, dotPara...)
+		if !slices.Contains(params, "--dot-server") {
+			params = append(params, "--dot-server", "google")
+		}
 	}
 	return isFake, params
 }
 
 func ParseIP(target string) (string, error) {
-	ips, err := net.LookupHost(target)
+	if ip := net.ParseIP(target); ip != nil {
+		return ip.String(), nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, target)
 	if err != nil {
 		return "", err
 	}
 
-	if len(ips) != 0 {
-		return ips[0], nil
+	if len(addrs) == 0 {
+		return "", fmt.Errorf("no IP records for %s", target)
 	}
 
-	return target, nil
+	for _, a := range addrs {
+		if a.IP.To4() != nil {
+			return a.IP.String(), nil
+		}
+	}
+
+	return addrs[0].IP.String(), nil
 }
 
 var OnConnectionUp = func(cm *autopaho.ConnectionManager, connAck *paho.Connack) {
