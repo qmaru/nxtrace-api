@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"sync"
 )
 
 const (
@@ -10,4 +11,6 @@ const (
 	GoVer     string = "COMMIT_GOVER"
 )
 
-var Version string = fmt.Sprintf("%s (git-%s) (%s)", DateVer, CommitVer, GoVer)
+var Version = sync.OnceValue(func() string {
+	return fmt.Sprintf("%s (git-%s) (%s)", DateVer, CommitVer, GoVer)
+})
