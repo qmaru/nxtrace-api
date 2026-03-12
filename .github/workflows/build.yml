@@ -34,16 +34,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push prod
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ./Dockerfile
+          target: prod
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/nxtrace:latest
-            ghcr.io/${{ github.repository_owner }}/nxtrace:go
+            ghcr.io/${{ github.repository_owner }}/nxtrace:prod
+
+      - name: Build and push debug
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          target: debug
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/nxtrace:debug
 
   native:
     name: native

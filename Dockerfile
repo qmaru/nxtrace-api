@@ -28,6 +28,26 @@ FROM scratch AS build-core
 
 COPY --from=go-core-builder /go/bin/nexttrace_* /
 
+FROM alpine:3.20 AS debug
+
+RUN apk add --no-cache \
+    bash \
+    curl \
+    iproute2 \
+    strace \
+    tcpdump \
+    ca-certificates \
+    tzdata
+
+COPY --from=go-core-builder /go/bin/nexttrace_* /nexttrace
+COPY --from=go-api-builder /usr/src/nxtapi_* /nxtapi
+
+ENV TRACE_CORE="/nexttrace"
+
+EXPOSE 8080
+
+CMD ["/nxtapi"]
+
 FROM busybox:uclibc AS tinybox
 
 COPY --from=go-core-builder /go/bin/nexttrace_* /nexttrace
