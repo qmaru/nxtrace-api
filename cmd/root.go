@@ -12,6 +12,7 @@ import (
 type Option struct {
 	Version func()      `short:"v" long:"version" description:"Show version"`
 	Mqtt    MqttCommand `command:"mqtt"`
+	Ping    PingCommand `command:"ping"`
 }
 
 func Execute() {
