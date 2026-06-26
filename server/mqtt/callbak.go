@@ -119,6 +119,7 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		mqttCfg := common.NxtConfig.GetMqttConfig()
 
 		resultTopic := fmt.Sprintf("%s/result", mqttCfg.MqttTopic)
+		requestId := task.RequestId
 		target := task.Target
 		params := task.Params
 		sourceName := task.SourceName
@@ -133,10 +134,10 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 
 		isFake, latestParams := SetDot(sourceIP, params)
 
-		log.Printf("[Receive] region=%s target=%s (fakeip=%t)\n", region, target, isFake)
-		log.Printf("[Receive] params from %s: %+v\n", sourceName, params)
-		log.Printf("[Receive] trace params %v\n", latestParams)
-		log.Printf("[Receive] receive_topic=%s result_topic=%s\n", topic, resultTopic)
+		log.Printf("[Receive] request_id=%s region=%s target=%s (fakeip=%t)\n", requestId, region, target, isFake)
+		log.Printf("[Receive] request_id=%s params from %s: %+v\n", requestId, sourceName, params)
+		log.Printf("[Receive] request_id=%s trace params %v\n", requestId, latestParams)
+		log.Printf("[Receive] request_id=%s receive_topic=%s result_topic=%s\n", requestId, topic, resultTopic)
 
 		var traceResult string
 
@@ -159,7 +160,8 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		}
 
 		pubTextMessage := map[string]any{
-			"result": traceResult,
+			"request_id": requestId,
+			"result":     traceResult,
 			"callback": map[string]string{
 				"region":      region,
 				"target":      target,
@@ -170,20 +172,20 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		}
 
 		if common.NxtConfig.Debug {
-			log.Printf("[Receive] trace publish message: %s\n", pubTextMessage)
+			log.Printf("[Receive] request_id=%s trace publish message: %s\n", requestId, pubTextMessage)
 		}
 
 		pubMessage, err := encodeMessage(pubTextMessage)
 		if err != nil {
-			log.Printf("[Receive] encode output message error: %v\n", err)
+			log.Printf("[Receive] request_id=%s encode output message error: %v\n", requestId, err)
 			return true, nil
 		}
 
 		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 		defer cancel()
 
-		log.Printf("[Receive] start publish\n")
-		log.Printf("[Receive] id=%s qos=%d retain=%t clean=%t\n", clientID, mqttCfg.MqttQos, mqttCfg.MqttRetain, mqttCfg.MqttCleanStart)
+		log.Printf("[Receive] request_id=%s start publish\n", requestId)
+		log.Printf("[Receive] request_id=%s id=%s qos=%d retain=%t clean=%t\n", requestId, clientID, mqttCfg.MqttQos, mqttCfg.MqttRetain, mqttCfg.MqttCleanStart)
 		_, err = pr.Client.Publish(ctx, &paho.Publish{
 			Topic:   resultTopic,
 			QoS:     mqttCfg.MqttQos,
@@ -192,9 +194,9 @@ var OnPublishReceived = []func(paho.PublishReceived) (bool, error){
 		})
 
 		if err != nil {
-			log.Printf("[Receive] publish error: topic=%s err=%v\n", resultTopic, err)
+			log.Printf("[Receive] request_id=%s publish error: topic=%s err=%v\n", requestId, resultTopic, err)
 		} else {
-			log.Printf("[Receive] publish message: [%s] %s\n", region, resultTopic)
+			log.Printf("[Receive] request_id=%s publish message: [%s] %s\n", requestId, region, resultTopic)
 		}
 
 		return true, nil

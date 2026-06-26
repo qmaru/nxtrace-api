@@ -5,6 +5,7 @@ import (
 )
 
 type TaskMessage struct {
+	RequestId  string   `json:"request_id"`
 	Region     string   `json:"region"`
 	Target     string   `json:"target"`
 	Params     []string `json:"params"`
@@ -24,8 +25,8 @@ func encodeMessage(message any) ([]byte, error) {
 // decodeTaskMessage decode to TaskMessage
 func decodeTaskMessage(message []byte) (*TaskMessage, error) {
 	var t TaskMessage
-	if err := json.Unmarshal(message, &t); err == nil {
-		return &t, nil
+	if err := json.Unmarshal(message, &t); err != nil {
+		return nil, err
 	}
 	return &t, nil
 }
