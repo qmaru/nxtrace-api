@@ -2,7 +2,7 @@ FROM golang:alpine AS go-core-builder
 
 RUN apk add upx
 
-RUN CGO_ENABLED=0 go install -ldflags="-w -s -extldflags='static'" -trimpath github.com/nxtrace/NTrace-core@latest \
+RUN CGO_ENABLED=0 go install -tags flavor_tiny -ldflags="-w -s -extldflags='static'" -trimpath github.com/nxtrace/NTrace-core@latest \
     && mv $GOPATH/bin/NTrace-core $GOPATH/bin/nexttrace_$(uname -m) \
     && upx --best --lzma $GOPATH/bin/nexttrace_$(uname -m)
 
